@@ -21,6 +21,7 @@
 (declare Constant)
 (declare ONE)
 (declare ZERO)
+(declare TWO)
 
 (deftype ConstantPrototype [value]
   Operation
@@ -31,6 +32,7 @@
 (defn Constant [value] (ConstantPrototype. value))
 (def ZERO (Constant 0))
 (def ONE (Constant 1))
+(def TWO (Constant 2))
 
 ;Variable
 (declare Variable)
@@ -103,7 +105,7 @@
 (def SquarePrototype (CommonPrototype.
                     #(* % %)
                     "square"
-                    (fn [a da] (Multiply (Constant 2) da a))))
+                    (fn [a da] (Multiply TWO da a))))
 
 (defn Square [& args]
   (CommonOperation. SquarePrototype args))
@@ -114,7 +116,7 @@
 (def SqrtPrototype (CommonPrototype.
                     #(Math/sqrt (Math/abs %))
                     "sqrt"
-                    (fn [a da] (Multiply (Sqrt (Square a)) da (Divide (Constant 1) (Multiply a (Constant 2) (Sqrt a)))))))
+                    (fn [a da] (Multiply (Sqrt (Square a)) da (Divide ONE (Multiply a TWO (Sqrt a)))))))
 
 (defn Sqrt [& args]
   (CommonOperation. SqrtPrototype args))

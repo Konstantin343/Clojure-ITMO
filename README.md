@@ -3,5 +3,7 @@ Some Clojure homeworks from Paradigms-courses.
 
 ### 1. Linear
 Operations with vectors, matrix and tensors
-### 2. Expressions
-Parser of expressions in prefix form. Some mathematical functions
+### 2. Functional
+Parser of functional expressions in prefix form. Some mathematical functions
+### 3. Object
+Parser of object expressions in prefix form. Some mathematical functions

@@ -143,6 +143,28 @@
 (defn Cos [& args]
   (CommonOperation. CosPrototype args))
 
+;SinhCosh
+(declare Sinh)
+(declare Cosh)
+
+;Sinh
+(def SinhPrototype (CommonPrototype.
+                    #(Math/sinh %)
+                    "sinh"
+                    (fn [a da] (Multiply da (Cosh a)))))
+
+(defn Sinh [& args]
+  (CommonOperation. SinhPrototype args))
+
+;Cosh
+(def CoshPrototype (CommonPrototype.
+                    #(Math/cosh %)
+                    "cosh"
+                    (fn [a da] (Multiply da (Sinh a)))))
+
+(defn Cosh [& args]
+  (CommonOperation. CoshPrototype args))
+
 ;Parser
 (def ops {'+ Add,
           '- Subtract,
@@ -156,7 +178,7 @@
 
 (def vars {'x (Variable "x"),
           'y (Variable "y"),
-          'z (Variable "z")})
+          'z (Variable "z")})3
 
 (defn parseObject [expression]
   (cond   

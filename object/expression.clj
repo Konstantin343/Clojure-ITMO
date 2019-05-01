@@ -1,7 +1,7 @@
 ;Interface
 (definterface Operation
   (evaluate [])
-	(toString [])
+  (toString [])
   (diff []))
 
 ;Operation
@@ -178,7 +178,7 @@
 
 (def vars {'x (Variable "x"),
           'y (Variable "y"),
-          'z (Variable "z")})3
+          'z (Variable "z")})
 
 (defn parseObject [expression]
   (cond   

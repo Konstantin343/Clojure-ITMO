@@ -1,12 +1,16 @@
 ;Interface
 (definterface Operation
   (evaluate [])
-  (toString [])
+	(toString [])
+  (toStringSuffix [])
+  (toStringInfix [])
   (diff []))
 
 ;Operation
 (defn evaluate [expr vars] ((.evaluate expr) vars))
 (defn toString [expr] (.toString expr))
+(defn toStringSuffix [expr] (.toStringSuffix expr))
+(defn toStringInfix [expr] (.toStringInfix expr))
 (defn diff [expr var] ((.diff expr) var))
 
 (deftype CommonPrototype [operation symbol diffRule])
@@ -15,6 +19,8 @@
   Operation
   (evaluate [this] #(apply (.operation prototype) (map (fn [x] (evaluate x %)) args)))
   (toString [this] (str "(" (.symbol prototype) " " (clojure.string/join " " (map toString args)) ")"))
+  (toStringSuffix [this] (str "(" (clojure.string/join " " (map toStringSuffix args)) " " (.symbol prototype) ")"))
+  (toStringInfix [this] (str "(" (clojure.string/join (str " " (.symbol prototype) " ") (map toStringInfix args))  ")"))
   (diff [this] #(apply (.diffRule prototype) (concat args (map (fn [x] (diff x %)) args)))))
 
 ;Constant
@@ -27,6 +33,8 @@
   Operation
   (evaluate [this] (fn [vars] value))
   (toString [this] (format "%.1f" (double value)))
+  (toStringSuffix [this] (toString this))
+  (toStringInfix [this] (toString this))
   (diff [this] (fn [var] ZERO)))
 
 (defn Constant [value] (ConstantPrototype. value))
@@ -41,6 +49,8 @@
   Operation
   (evaluate [this] (fn [vars] (get vars name)))
   (toString [this] name)
+  (toStringSuffix [this] name)
+  (toStringInfix [this] name)
   (diff [this] (fn [var] (if (= var name) ONE ZERO))))
 
 (defn Variable [name] (VariablePrototype. name))
@@ -165,7 +175,7 @@
 (defn Cosh [& args]
   (CommonOperation. CoshPrototype args))
 
-;Parser
+;ParserPrefixSuffix
 (def ops {'+ Add,
           '- Subtract,
           '* Multiply,
@@ -174,15 +184,25 @@
           'square Square,
           'sqrt Sqrt,
           'sin Sin,
-          'cos Cos})
+          'cos Cos
+          'sinh Sinh,
+          'cosh Cosh})
 
 (def vars {'x (Variable "x"),
-          'y (Variable "y"),
-          'z (Variable "z")})
+         'y (Variable "y"),
+         'z (Variable "z")})
 
-(defn parseObject [expression]
+(declare parseObject)
+(declare parseObjectSuffix)
+
+(defn parse [expression mode]
   (cond   
     (symbol? expression) (get vars expression)
     (number? expression) (Constant expression)
-    (seq? expression) (apply (get ops (first expression)) (map parseObject (rest expression)))
-    (string? expression) (parseObject (read-string expression))))
+    (seq? expression) (cond 
+                      (= mode 0) (apply (get ops (first expression)) (map parseObject (rest expression)))
+                      (= mode 1) (apply (get ops (last expression)) (map parseObjectSuffix (take (- (count expression) 1) expression))))
+    (string? expression) (parse (read-string expression) mode)))
+
+(defn parseObject [expression] (parse expression 0))
+(defn parseObjectSuffix [expression] (parse expression 1))

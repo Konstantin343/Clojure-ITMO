@@ -1,10 +1,10 @@
 ;Interface
 (definterface Operation
-  (evaluate [])
+	(evaluate [])
 	(toString [])
-  (toStringSuffix [])
-  (toStringInfix [])
-  (diff []))
+	(toStringSuffix [])
+	(toStringInfix [])
+	(diff []))
 
 ;Operation
 (defn evaluate [expr vars] ((.evaluate expr) vars))
@@ -194,18 +194,18 @@
 (def args_cnt {"+" "any",
                "-" "any",
                "*" "any",
-	 	           "/" "any",
-		           "negate" 1,
-		           "square" 1,
-		           "sqrt" 1,
-		           "sin" 1,
-		           "cos" 1
-		           "sinh" 1,
-		           "cosh" 1})
+	 	       "/" "any",
+			   "negate" 1,
+			   "square" 1,
+			   "sqrt" 1,
+			   "sin" 1,
+			   "cos" 1
+			   "sinh" 1,
+			   "cosh" 1})
 
-(def vars {'x (Variable "x"),
-         'y (Variable "y"),
-         'z (Variable "z")})
+(def vars {	'x (Variable "x"),
+			'y (Variable "y"),
+			'z (Variable "z")})
 
 (declare parseObject)
 (declare parseObjectSuffix)

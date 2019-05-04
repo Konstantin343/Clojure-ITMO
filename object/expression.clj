@@ -191,17 +191,17 @@
           'sinh Sinh,
           'cosh Cosh})
 
-(def args_cnt {"+" "any",
-               "-" "any",
-               "*" "any",
-	 	       "/" "any",
-			   "negate" 1,
-			   "square" 1,
-			   "sqrt" 1,
-			   "sin" 1,
-			   "cos" 1
-			   "sinh" 1,
-			   "cosh" 1})
+(def args_cnt {	"+" "any",
+				"-" "any",
+				"*" "any",
+				"/" "any",
+				"negate" 1,
+				"square" 1,
+				"sqrt" 1,
+				"sin" 1,
+				"cos" 1
+				"sinh" 1,
+				"cosh" 1})
 
 (def vars {	'x (Variable "x"),
 			'y (Variable "y"),

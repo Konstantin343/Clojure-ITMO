@@ -15,12 +15,15 @@
 
 (deftype CommonPrototype [operation symbol diffRule])
 
+(declare args_cnt)
+
 (deftype CommonOperation [prototype args]
   Operation
   (evaluate [this] #(apply (.operation prototype) (map (fn [x] (evaluate x %)) args)))
   (toString [this] (str "(" (.symbol prototype) " " (clojure.string/join " " (map toString args)) ")"))
   (toStringSuffix [this] (str "(" (clojure.string/join " " (map toStringSuffix args)) " " (.symbol prototype) ")"))
-  (toStringInfix [this] (str "(" (clojure.string/join (str " " (.symbol prototype) " ") (map toStringInfix args))  ")"))
+  (toStringInfix [this] (str "(" (if (= (get args_cnt (.symbol prototype)) 1) (str (.symbol prototype) " ")) 
+                             (clojure.string/join (str " " (.symbol prototype) " ") (map toStringInfix args)) ")"))
   (diff [this] #(apply (.diffRule prototype) (concat args (map (fn [x] (diff x %)) args)))))
 
 ;Constant
@@ -188,6 +191,18 @@
           'sinh Sinh,
           'cosh Cosh})
 
+(def args_cnt {"+" "any",
+               "-" "any",
+               "*" "any",
+	 	           "/" "any",
+		           "negate" 1,
+		           "square" 1,
+		           "sqrt" 1,
+		           "sin" 1,
+		           "cos" 1
+		           "sinh" 1,
+		           "cosh" 1})
+
 (def vars {'x (Variable "x"),
          'y (Variable "y"),
          'z (Variable "z")})
@@ -206,3 +221,5 @@
 
 (defn parseObject [expression] (parse expression 0))
 (defn parseObjectSuffix [expression] (parse expression 1))
+
+(println (toStringInfix (eval (parseObjectSuffix "(((1 -) (x negate) (1 x y z 5 -) (-7 cosh) (2 y z -) *) 6 z 5 /)")))) 

@@ -6,4 +6,4 @@ Operations with vectors, matrix and tensors
 ### 2. Functional
 Parser of functional expressions in prefix form. Some mathematical functions
 ### 3. Object
-Parser of object expressions in prefix form. Some mathematical functions
+Parser of object expressions in prefix/suffix form. Some mathematical functions

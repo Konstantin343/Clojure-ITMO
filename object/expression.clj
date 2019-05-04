@@ -204,8 +204,8 @@
 		"cosh" 1})
 
 (def vars {	'x (Variable "x"),
-	'y (Variable "y"),
-	'z (Variable "z")})
+		'y (Variable "y"), 	
+		'z (Variable "z")})
 
 (declare parseObject)
 (declare parseObjectSuffix)

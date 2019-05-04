@@ -23,7 +23,7 @@
   (toString [this] (str "(" (.symbol prototype) " " (clojure.string/join " " (map toString args)) ")"))
   (toStringSuffix [this] (str "(" (clojure.string/join " " (map toStringSuffix args)) " " (.symbol prototype) ")"))
   (toStringInfix [this] (str "(" (if (= (get args_cnt (.symbol prototype)) 1) (str (.symbol prototype) " ")) 
-                             (clojure.string/join (str " " (.symbol prototype) " ") (map toStringInfix args)) ")"))
+                             (clojure.string/join (.symbol prototype) (map toStringInfix args)) ")"))
   (diff [this] #(apply (.diffRule prototype) (concat args (map (fn [x] (diff x %)) args)))))
 
 ;Constant

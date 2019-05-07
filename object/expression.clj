@@ -1,10 +1,10 @@
 ;Interface
 (definterface Operation
-	(evaluate [])
-	(toString [])
-	(toStringSuffix [])
-	(toStringInfix [])
-	(diff []))
+  (evaluate [])
+  (toString [])
+  (toStringSuffix [])
+  (toStringInfix [])
+  (diff []))
 
 ;Operation
 (defn evaluate [expr vars] ((.evaluate expr) vars))
@@ -15,15 +15,15 @@
 
 (deftype CommonPrototype [operation symbol diffRule])
 
-(declare args_cnt)
+(declare unary)
 
 (deftype CommonOperation [prototype args]
   Operation
   (evaluate [this] #(apply (.operation prototype) (map (fn [x] (evaluate x %)) args)))
   (toString [this] (str "(" (.symbol prototype) " " (clojure.string/join " " (map toString args)) ")"))
   (toStringSuffix [this] (str "(" (clojure.string/join " " (map toStringSuffix args)) " " (.symbol prototype) ")"))
-  (toStringInfix [this] (str "(" (if (= (get args_cnt (.symbol prototype)) 1) (str (.symbol prototype) " ")) 
-                             (clojure.string/join (.symbol prototype) (map toStringInfix args)) ")"))
+  (toStringInfix [this] (str (if (contains? unary (.symbol prototype)) (.symbol prototype)) 
+                             (str "(" (clojure.string/join (str " " (.symbol prototype) " ") (map toStringInfix args))) ")"))
   (diff [this] #(apply (.diffRule prototype) (concat args (map (fn [x] (diff x %)) args)))))
 
 ;Constant
@@ -48,13 +48,15 @@
 ;Variable
 (declare Variable)
 
+(defn getVar [name] (str (first (clojure.string/lower-case name))))
+
 (deftype VariablePrototype [name]
   Operation
-  (evaluate [this] (fn [vars] (get vars name)))
+  (evaluate [this] (fn [vars] (get vars (getVar name))))
   (toString [this] name)
   (toStringSuffix [this] name)
   (toStringInfix [this] name)
-  (diff [this] (fn [var] (if (= var name) ONE ZERO))))
+  (diff [this] (fn [var] (if (= var (getVar name)) ONE ZERO))))
 
 (defn Variable [name] (VariablePrototype. name))
 
@@ -178,8 +180,28 @@
 (defn Cosh [& args]
   (CommonOperation. CoshPrototype args))
 
-;ParserPrefixSuffix
-(def ops {'+ Add,
+;Pow
+(declare Pow)
+
+(def PowPrototype (CommonPrototype.
+                    #(Math/pow %1 %2)
+                    "**"
+                    (fn [] ()))) ;without diff
+(defn Pow [& args]
+  (CommonOperation. PowPrototype args))
+
+;Log
+(declare Log)
+
+(def LogPrototype (CommonPrototype.
+                    #(/ (Math/log (Math/abs %2)) (Math/log (Math/abs %1)))
+                    "//"
+                    (fn [] ()))) ;without diff
+(defn Log [& args]
+  (CommonOperation. LogPrototype args))
+
+;Parsers
+(def ops { '+ Add,
           '- Subtract,
           '* Multiply,
           '/ Divide,
@@ -189,37 +211,109 @@
           'sin Sin,
           'cos Cos
           'sinh Sinh,
-          'cosh Cosh})
+          'cosh Cosh,
+          (symbol "//") Log,
+          '** Pow})
 
-(def args_cnt {	"+" "any",
-		"-" "any",
-		"*" "any",
-		"/" "any",
-		"negate" 1,
-		"square" 1,
-		"sqrt" 1,
-		"sin" 1,
-		"cos" 1
-		"sinh" 1,
-		"cosh" 1})
-
-(def vars {	'x (Variable "x"),
-		'y (Variable "y"), 	
-		'z (Variable "z")})
+(def unary #{"negate"
+            "sin"
+            "cos"
+            "sinh"
+            "cosh"
+            "square"
+            "sqrt"})
 
 (declare parseObject)
 (declare parseObjectSuffix)
 
 (defn parse [expression mode]
   (cond   
-    (symbol? expression) (get vars expression)
     (number? expression) (Constant expression)
-    (seq? expression) (cond 
-                      (= mode 0) (apply (get ops (first expression)) (map parseObject (rest expression)))
-                      (= mode 1) (apply (get ops (last expression)) (map parseObjectSuffix (take (- (count expression) 1) expression))))
+    (symbol? expression) (Variable (str expression))
+    (seq? expression) (if (zero? mode)
+                       (apply (get ops (first expression)) (map parseObject (rest expression)))
+                       (apply (get ops (last expression)) (map parseObjectSuffix (take (- (count expression) 1) expression))))
     (string? expression) (parse (read-string expression) mode)))
 
+;PrefixSuffix
 (defn parseObject [expression] (parse expression 0))
 (defn parseObjectSuffix [expression] (parse expression 1))
 
-(println (toStringInfix (eval (parseObjectSuffix "(((1 -) (x negate) (1 x y z 5 -) (-7 cosh) (2 y z -) *) 6 z 5 /)")))) 
+;Combinators
+(defn -return [value tail] {:value value :tail tail})
+(def -valid? boolean)
+(def -value :value)
+(def -tail :tail)
+(defn _show [result]
+  (if (-valid? result) (str "-> " (pr-str (-value result)) " | " (pr-str (apply str (-tail result))))
+    "!"))
+(defn tabulate [parser inputs]
+  (run! (fn [input] (printf "    %-10s %s\n" input (_show (parser input)))) inputs))
+(defn _empty [value] (partial -return value))
+(defn _char [p]
+  (fn [[c & cs]]
+    (if (and c (p c)) (-return c cs))))
+(defn _map [f]
+  (fn [result]
+    (if (-valid? result)
+      (-return (f (-value result)) (-tail result)))))
+(defn _combine [f a b]
+  (fn [str]
+    (let [ar ((force a) str)]
+      (if (-valid? ar)
+        ((_map (partial f (-value ar)))
+          ((force b) (-tail ar)))))))
+(defn _either [a b]
+  (fn [str]
+    (let [ar ((force a) str)]
+      (if (-valid? ar) ar ((force b) str)))))
+(defn _parser [p]
+  (fn [input]
+    (-value ((_combine (fn [v _] v) p (_char #{\u0000})) (str input \u0000)))))
+
+(defn +char [chars] (_char (set chars)))
+(defn +char-not [chars] (_char (comp not (set chars))))
+(defn +map [f parser] (comp (_map f) parser))
+(def +parser _parser)
+(def +ignore (partial +map (constantly 'ignore)))
+(defn iconj [coll value]
+  (if (= value 'ignore) coll (conj coll value)))
+(defn +seq [& ps]
+  (reduce (partial _combine iconj) (_empty []) ps))
+(defn +seqf [f & ps] (+map (partial apply f) (apply +seq ps)))
+(defn +seqn [n & ps] (apply +seqf (fn [& vs] (nth vs n)) ps))
+(defn +or [p & ps]
+  (reduce (partial _either) p ps))
+(defn +opt [p]
+  (+or p (_empty nil)))
+(defn +star [p]
+  (letfn [(rec [] (+or (+seqf cons p (delay (rec))) (_empty ())))] (rec)))
+(defn +plus [p] (+seqf cons p (+star p)))
+(defn +str [p] (+map (partial apply str) p))
+
+;Infix
+(def *all-chars (mapv char (range 0 128)))
+(def *digits (apply str (filter #(Character/isDigit %) *all-chars)))
+(def *digit (+char *digits))
+(def *spaceSymbols(apply str (filter #(Character/isWhitespace %) *all-chars)))
+(def *space (+char *spaceSymbols))
+(def *ws (+ignore (+star *space)))
+
+(declare *infixPart)
+(declare *infixSeq)
+
+(def *constant (+map read-string (+str (+seqf #(into (vec (cons %1 %2)) (vec (cons %3 %4))) 
+                                              (+opt (+char "+-")) (+plus *digit) (+opt (+char ".")) (+opt (+plus *digit))))))
+(def *variable (+map symbol (+str (+plus (+char "xXyYzZ")))))
+(def *addSubSymbol (+map symbol (+str (+map list (+char "+-")))))
+(def *divMulSymbol (+map symbol (+str (+plus (+char "/*")))))
+(def *opsSymbol (+map symbol (+str (+plus (+char-not (str *spaceSymbols *digits \u0000 "xyzXYZ+-/*()."))))))
+
+(defn *infArgsOp [operand sign] (+map (partial reduce #(list (first %2) %1 (second %2))) (+seqf cons *ws operand (+star (+seq *ws sign *ws operand)) *ws)))
+(defn *ops [] (+map #(list (first %) (second %)) (+seq *ws *opsSymbol *ws (+or (delay (*infixSeq)) (delay (*ops)) *constant *variable))))
+(defn *divMul [] (*infArgsOp (+or (delay (*infixSeq)) (delay (*ops)) *constant *variable) *divMulSymbol))
+(defn *addSub [] (*infArgsOp (+or (delay (*divMul)) (delay (*infixSeq)) (delay (*ops)) *constant *variable) *addSubSymbol))
+(defn *infixSeq [] (+seqn 1 (+char "(") *ws (delay (*infixPart)) *ws (+char ")")))
+(defn *infixPart [] (+or (*addSub) (*divMul) (*infixSeq) (*ops) *constant *variable))
+
+(defn parseObjectInfix [expression] (parseObject ((+parser (+seqn 0 *ws (*infixPart) *ws)) expression)))

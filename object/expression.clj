@@ -200,8 +200,38 @@
 (defn Log [& args]
   (CommonOperation. LogPrototype args))
 
+;And
+(declare And)
+
+(def AndPrototype (CommonPrototype.
+                    #(Double/longBitsToDouble (bit-and (Double/doubleToLongBits %1) (Double/doubleToLongBits %2)))
+                    "&"
+                    (fn [] ()))) ;without diff
+(defn And [& args]
+  (CommonOperation. AndPrototype args))
+
+;Or
+(declare Or)
+
+(def OrPrototype (CommonPrototype.
+                    #(Double/longBitsToDouble (bit-or (Double/doubleToLongBits %1) (Double/doubleToLongBits %2)))
+                    "|"
+                    (fn [] ()))) ;without diff
+(defn Or [& args]
+  (CommonOperation. OrPrototype args))
+
+;Xor
+(declare Xor)
+
+(def XorPrototype (CommonPrototype.
+                    #(Double/longBitsToDouble (bit-xor (Double/doubleToLongBits %1) (Double/doubleToLongBits %2)))
+                    "^"
+                    (fn [] ()))) ;without diff
+(defn Xor [& args]
+  (CommonOperation. XorPrototype args))
+
 ;Parsers
-(def ops { '+ Add,
+(def ops {'+ Add,
           '- Subtract,
           '* Multiply,
           '/ Divide,
@@ -213,7 +243,10 @@
           'sinh Sinh,
           'cosh Cosh,
           (symbol "//") Log,
-          '** Pow})
+          '** Pow,
+          '& And,
+          (symbol "^") Xor,
+          '| Or })
 
 (def unary #{"negate"
             "sin"
@@ -287,7 +320,7 @@
 (defn +opt [p]
   (+or p (_empty nil)))
 (defn +star [p]
-  (letfn [(rec [] (+or (+seqf cons p (delay (rec))) (_empty ())))] (rec)))
+  (letfn [(rec [] (+or (+seqf cons p (delay (rec))) (_empty ())))] (rec))) 
 (defn +plus [p] (+seqf cons p (+star p)))
 (defn +str [p] (+map (partial apply str) p))
 
@@ -307,13 +340,24 @@
 (def *variable (+map symbol (+str (+plus (+char "xXyYzZ")))))
 (def *addSubSymbol (+map symbol (+str (+map list (+char "+-")))))
 (def *divMulSymbol (+map symbol (+str (+plus (+char "/*")))))
-(def *opsSymbol (+map symbol (+str (+plus (+char-not (str *spaceSymbols *digits \u0000 "xyzXYZ+-/*()."))))))
-
-(defn *infArgsOp [operand sign] (+map (partial reduce #(list (first %2) %1 (second %2))) (+seqf cons *ws operand (+star (+seq *ws sign *ws operand)) *ws)))
-(defn *ops [] (+map #(list (first %) (second %)) (+seq *ws *opsSymbol *ws (+or (delay (*infixSeq)) (delay (*ops)) *constant *variable))))
-(defn *divMul [] (*infArgsOp (+or (delay (*infixSeq)) (delay (*ops)) *constant *variable) *divMulSymbol))
-(defn *addSub [] (*infArgsOp (+or (delay (*divMul)) (delay (*infixSeq)) (delay (*ops)) *constant *variable) *addSubSymbol))
+(def *andSymbol (+map symbol (+str (+plus (+char "&")))))
+(def *orSymbol (+map symbol (+str (+plus (+char "|")))))
+(def *xorSymbol (+map symbol (+str (+plus (+char "^")))))
+(def *logPowSymbol (+map symbol (+str (+or (+seq (+char "/") (+char "/")) (+seq (+char "*") (+char "*"))))))
+(def *funcSymbol (+map symbol (+str (+plus (+char-not (str *spaceSymbols *digits \u0000 "xyzXYZ+-/*()."))))))
+  
+(defn *infArgsOpLeft [operand sign] (+map (partial reduce #(list (first %2) %1 (second %2))) 
+                                          (+seqf cons *ws operand (+star (+seq *ws sign *ws operand)) *ws)))
+(defn *infArgsOpRight [operand sign] (+map (partial reduce #(list (second %2) (first %2) %1)) 
+                                           (+seqf into (+seqf reverse *ws (+star (+seq operand *ws sign *ws))) (+seq operand) *ws)))
+(defn *func [] (+map #(list (first %) (second %)) (+seq *ws *funcSymbol *ws (+or (delay (*infixSeq)) (delay (*func)) *constant *variable))))
+(defn *logPow [] (*infArgsOpRight  (+or (delay (*infixSeq)) (delay (*func)) *constant *variable) *logPowSymbol))
+(defn *divMul [] (*infArgsOpLeft (delay (*logPow)) *divMulSymbol))
+(defn *addSub [] (*infArgsOpLeft (delay (*divMul)) *addSubSymbol))
+(defn *and [] (*infArgsOpLeft (delay (*addSub)) *andSymbol))
+(defn *or []  (*infArgsOpLeft (delay (*and)) *orSymbol))
+(defn *xor [] (*infArgsOpLeft (delay (*or)) *xorSymbol))
 (defn *infixSeq [] (+seqn 1 (+char "(") *ws (delay (*infixPart)) *ws (+char ")")))
-(defn *infixPart [] (+or (*addSub) (*divMul) (*infixSeq) (*ops) *constant *variable))
+(defn *infixPart [] (+or (*xor) (*or) (*and) (*addSub) (*divMul) (*logPow) (*infixSeq) (*func) *constant *variable))
 
-(defn parseObjectInfix [expression] (parseObject ((+parser (+seqn 0 *ws (*infixPart) *ws)) expression)))
+(defn parseObjectInfix [expression] (parseObject ((+parser (+seqn 0 *ws (*infixPart) *ws)) expression))) 
